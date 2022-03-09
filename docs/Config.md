@@ -89,7 +89,7 @@ Just like [`autoCommands`](#autocommands) above, this takes a string formatted a
 
 Nested content in latex rendered during initialization or pasted into mathquill is truncated to avoid violating `maxDepth`. When `maxDepth` is not set, no depth limit is applied by default.
 
-##focusOnDenominator
+## focusOnDenominator
 
 If `focusOnDenominator` is true then cursor put to denominator in the fraction expression. Default value is `false`.
 
