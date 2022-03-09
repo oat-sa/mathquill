@@ -13,6 +13,7 @@ The configuration options object is of the following form:
   autoCommands: 'pi theta sqrt sum',
   autoOperatorNames: 'sin cos',
   maxDepth: 10,
+  focusOnDenominator: false,
   substituteTextarea: function() {
     return document.createElement('textarea');
   },
@@ -87,6 +88,10 @@ Just like [`autoCommands`](#autocommands) above, this takes a string formatted a
 `maxDepth` specifies the maximum number of nested MathBlocks. When `maxDepth` is set to 1, the user can type simple math symbols directly into the editor but not into nested MathBlocks, e.g. the numerator and denominator of a fraction.
 
 Nested content in latex rendered during initialization or pasted into mathquill is truncated to avoid violating `maxDepth`. When `maxDepth` is not set, no depth limit is applied by default.
+
+##focusOnDenominator
+
+If `focusOnDenominator` is true then cursor put to denominator in the fraction expression. Default value is `false`.
 
 ## substituteTextarea
 
