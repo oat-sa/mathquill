@@ -375,6 +375,9 @@ var BottomNotation = P(MathCommand, function (_, super_){
 
   _.createLeftOf = function(cursor) {
     super_.createLeftOf.apply(this, arguments);
+    Letter('x').createLeftOf(cursor);
+    LatexCmds.to().createLeftOf(cursor);
+    LatexCmds.infty().createLeftOf(cursor);
   };
   _.latex = function() {
     function simplify(latex) {
