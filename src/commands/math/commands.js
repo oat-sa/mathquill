@@ -492,7 +492,72 @@ LatexCmds.limit = P(MathCommand, function(_, super_) {
     };
   };
 });
+// LatexCmds.substack = P(MathCommand, function(_, super_) {
+//   _.init = function() {
+//     var htmlTemplate =
+//       '<span class="mq-substack mq-non-leaf">'
+//     +   '<span class="mq-first-line"><span>&0</span></span>'
+//     +   '<span class="mq-second-line"><span>&1</span></span>'
+//     + '</span>'
+//     ;
+//     Symbol.prototype.init.call(this, '\\substack', htmlTemplate);
+//   };
+//   _.latex = function() {
+//     function simplify(latex) {
+//       return latex.length === 1 ? latex : '{' + (latex || ' ') + '}';
+//     }
+//     return this.ctrlSeq + simplify(this.ends[L].latex() + '*' + this.ends[R].latex());
+//   };
+//   _.parser = function() {
+//     var string = Parser.string;
+//     var optWhitespace = Parser.optWhitespace;
+//     var succeed = Parser.succeed;
+//     var block = latexMathParser.block;
 
+//     var self = this, child = MathBlock();
+//     self.blocks = [ child ];
+//     child.adopt(self, 0, 0);
+
+//     return optWhitespace.then().then(function(supOrSub) {
+//       return block.then(function(block) {
+//         block.children().adopt(child, child.ends[R], 0);
+//         return succeed(self);
+//       });
+//     }).many().result(self);
+//   };
+//   _.finalizeTree = function() {
+//     this.downInto = this.ends[L];
+//     this.ends[L].upOutOf = function(cursor) {
+//       // this is basically gonna be insRightOfMeUnlessAtEnd,
+//       // by analogy with insLeftOfMeUnlessAtEnd
+//       var cmd = this.parent, ancestorCmd = cursor;
+//       do {
+//         if (ancestorCmd[L]) return cursor.insRightOf(cmd);
+//         ancestorCmd = ancestorCmd.parent.parent;
+//       } while (ancestorCmd !== cmd);
+//       cursor.insLeftOf(cmd);
+//     };
+//   };
+// });
+LatexCmds.substack = P(MathCommand, function(_, super_) {
+  _.ctrlSeq = '\\substack';
+  _.htmlTemplate =
+    '<span class="mq-substack mq-non-leaf">'
+    +   '<span class="mq-lines">&0</span>'
+    + '</span>'
+  ;
+  _.textTemplate = ['substack(', ')'];
+});
+LatexCmds.backslash =
+LatexCmds['@'] = P(MathCommand, function(_, super_) {
+  _.ctrlSeq = '@';
+  _.htmlTemplate =
+      '<span class="mq-nextline mq-non-leaf">'
+    +   '<span class="mq-second-line">&0</span>'
+    + '</span>'
+  ;
+  _.textTemplate = ['@(', ')'];
+});
 var Fraction =
 LatexCmds.frac =
 LatexCmds.dfrac =
