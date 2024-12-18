@@ -1,0 +1,34 @@
+.mq-math-mode {
+  .mq-wideparen {
+    position: relative;
+    padding-top: 0.5em;
+  }
+
+  .mq-wideparen:before {
+    content: '';
+    position: absolute;
+    top: 0.3em;
+    left: -0.15em;
+    right: -0.15em;
+    height: 0.8em;
+    border-top: 1px solid black;
+    border-radius: 50% 50% 0 0;
+  }
+}
+
+.mq-stackrel {
+  display: inline-block;
+  text-align: center;
+  position: relative;
+
+  .mq-top {
+    display: block;
+    line-height: 1;
+    margin-bottom: -0.5em;
+  }
+
+  .mq-bottom {
+    display: block;
+    line-height: 1;
+  }
+}

@@ -178,6 +178,67 @@ LatexCmds.dot = () => {
   );
 };
 
+LatexCmds.wideparen = () =>
+  new Style(
+    '\\wideparen',
+    'span',
+    'class="mq-non-leaf mq-wideparen"',
+    'Wideparen'
+  );
+
+class StackrelCommand extends MathCommand {
+  ctrlSeq = '\\stackrel';
+  htmlTemplate =
+    '<span class="mq-stackrel mq-non-leaf">' +
+    '<span class="mq-top">&0</span>' +
+    '<span class="mq-bottom">&1</span>' +
+    '</span>';
+  textTemplate = ['stackrel(', ',', ')'];
+
+  constructor() {
+    super();
+  }
+
+  numBlocks() {
+    return 2;
+  }
+
+  parser() {
+    const self = this;
+    // Remove unused string import
+    const block = latexMathParser.block;
+    const optWhitespace = Parser.optWhitespace;
+
+    return optWhitespace.then(block).then(function (top) {
+      self.blocks = [top];
+      top.adopt(self, 0, 0);
+      return optWhitespace.then(block).map(function (bottom) {
+        bottom.adopt(self, top, 0);
+        self.blocks!.push(bottom); // Add non-null assertion
+        return self;
+      });
+    });
+  }
+
+  createBlocks() {
+    this.blocks = [new MathBlock(), new MathBlock()]; // Add 'new' keyword
+    this.blocks[0].adopt(this, 0, 0);
+    this.blocks[1].adopt(this, this.blocks[0], 0);
+  }
+
+  latex() {
+    return (
+      '\\stackrel{' +
+      this.blocks![0].latex() +
+      '}{' +
+      this.blocks![1].latex() +
+      '}'
+    ); // Add non-null assertions
+  }
+}
+
+LatexCmds.stackrel = () => new StackrelCommand();
+
 // `\textcolor{color}{math}` will apply a color to the given math content, where
 // `color` is any valid CSS Color Value (see [SitePoint docs][] (recommended),
 // [Mozilla docs][], or [W3C spec][]).
