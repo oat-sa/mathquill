@@ -178,12 +178,12 @@ LatexCmds.dot = () => {
   );
 };
 
-LatexCmds.wideparen = () =>
+LatexCmds.overparen = () =>
   new Style(
-    '\\wideparen',
+    '\\overparen',
     'span',
-    'class="mq-non-leaf mq-wideparen"',
-    'Wideparen'
+    'class="mq-non-leaf mq-overparen"',
+    'overparen'
   );
 
 class StackrelCommand extends MathCommand {
