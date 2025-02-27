@@ -64,8 +64,11 @@ var saneKeyboardEvents = (function () {
     46: 'Del',
 
     144: 'NumLock',
-    229: 'Backspace', // Japanese IME on iPad
   };
+
+  const SPECIAL_KEYS = Object.keys(KEY_VALUES).map(
+    (key: string) => KEY_VALUES[key as unknown as number]
+  );
 
   // To the extent possible, create a normalized string representation
   // of the key combo (i.e., key code and modifier keys).
@@ -74,6 +77,11 @@ var saneKeyboardEvents = (function () {
     var keyVal = KEY_VALUES[which];
     var key;
     var modifiers = [];
+    var originalEventKey = evt.originalEvent && evt.originalEvent.key;
+
+    if (!keyVal && SPECIAL_KEYS.indexOf(originalEventKey) !== -1) {
+      keyVal = originalEventKey;
+    }
 
     if (evt.ctrlKey) modifiers.push('Ctrl');
     if (evt.originalEvent && evt.originalEvent.metaKey) modifiers.push('Meta');
@@ -90,6 +98,10 @@ var saneKeyboardEvents = (function () {
   function isVisibleKey(evt: JQ_KeyboardEvent) {
     var which = evt.which || evt.keyCode;
     var keyVal = KEY_VALUES[which];
+    var originalEventKey = evt.originalEvent && evt.originalEvent.key;
+    if (!keyVal && SPECIAL_KEYS.indexOf(originalEventKey) !== -1) {
+      keyVal = originalEventKey;
+    }
     return !(
       evt.ctrlKey ||
       (evt.originalEvent && evt.originalEvent.metaKey) ||
