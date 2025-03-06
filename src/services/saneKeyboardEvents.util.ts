@@ -66,6 +66,10 @@ var saneKeyboardEvents = (function () {
     144: 'NumLock',
   };
 
+  const SPECIAL_KEYS = Object.keys(KEY_VALUES).map(
+    (key: string) => KEY_VALUES[key as unknown as number]
+  );
+
   // To the extent possible, create a normalized string representation
   // of the key combo (i.e., key code and modifier keys).
   function stringify(evt: JQ_KeyboardEvent) {
@@ -73,6 +77,11 @@ var saneKeyboardEvents = (function () {
     var keyVal = KEY_VALUES[which];
     var key;
     var modifiers = [];
+    var originalEventKey = evt.originalEvent && evt.originalEvent.key;
+
+    if (!keyVal && SPECIAL_KEYS.indexOf(originalEventKey) !== -1) {
+      keyVal = originalEventKey;
+    }
 
     if (evt.ctrlKey) modifiers.push('Ctrl');
     if (evt.originalEvent && evt.originalEvent.metaKey) modifiers.push('Meta');
@@ -89,12 +98,24 @@ var saneKeyboardEvents = (function () {
   function isVisibleKey(evt: JQ_KeyboardEvent) {
     var which = evt.which || evt.keyCode;
     var keyVal = KEY_VALUES[which];
-    return !(evt.ctrlKey || evt.originalEvent && evt.originalEvent.metaKey || evt.altKey || evt.shiftKey || keyVal);
+    var originalEventKey = evt.originalEvent && evt.originalEvent.key;
+    if (!keyVal && SPECIAL_KEYS.indexOf(originalEventKey) !== -1) {
+      keyVal = originalEventKey;
+    }
+    return !(
+      evt.ctrlKey ||
+      (evt.originalEvent && evt.originalEvent.metaKey) ||
+      evt.altKey ||
+      evt.shiftKey ||
+      keyVal
+    );
   }
   function isIpadOS() {
-    return navigator.maxTouchPoints &&
+    return (
+      navigator.maxTouchPoints &&
       navigator.maxTouchPoints > 2 &&
-      /MacIntel/.test(navigator.platform);
+      /MacIntel/.test(navigator.platform)
+    );
   }
   // create a keyboard events shim that calls callbacks at useful times
   // and exports useful public methods
@@ -283,12 +304,20 @@ var saneKeyboardEvents = (function () {
         } else {
           controller.typedText(text);
         }
-      } else if (text.length === 0 && is_iPad && !input && keydown && keyup && !textWasInserted && isVisibleKey(keydown)) {
-          // issue with iPad and Japanese keyboard
-          // only first symbol put in textare,
-          // rest ignored and no text in textarea, no input event
-          // will be used keydown.key
-          controller.typedText(text);
+      } else if (
+        text.length === 0 &&
+        is_iPad &&
+        !input &&
+        keydown &&
+        keyup &&
+        !textWasInserted &&
+        isVisibleKey(keydown)
+      ) {
+        // issue with iPad and Japanese keyboard
+        // only first symbol put in textare,
+        // rest ignored and no text in textarea, no input event
+        // will be used keydown.key
+        controller.typedText(text);
       } // in Firefox, keys that don't type text, just clear seln, fire keypress
       // https://github.com/mathquill/mathquill/issues/293#issuecomment-40997668
       else if (text) guardedTextareaSelect(); // re-select if that's why we're here
@@ -369,7 +398,9 @@ var saneKeyboardEvents = (function () {
 
     // -*- attach event handlers -*- //
     textarea.bind({
-        input: function(e: JQ_InputEvent) { input = e; },
+      input: function (e: JQ_InputEvent) {
+        input = e;
+      },
     });
 
     // -*- export public methods -*- //
