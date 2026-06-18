@@ -263,7 +263,12 @@ var saneKeyboardEvents = (function () {
     function syncCompositionText() {
       if (!isComposing) return;
       var text = textarea.val();
-      if (!text) return;
+      if (!text) {
+        if (compositionTextLength > 0) {
+          clearCompositionText();
+        }
+        return;
+      }
       if (text === compositionString) return;
       updateCompositionText(text);
     }
@@ -381,7 +386,13 @@ var saneKeyboardEvents = (function () {
         // only first symbol put in textare,
         // rest ignored and no text in textarea, no input event
         // will be used keydown.key
-        insertText(keydown.key || '');
+        var fallbackKey =
+          keydown.key ||
+          (keydown.originalEvent && keydown.originalEvent.key) ||
+          '';
+        if (fallbackKey.length === 1) {
+          insertText(fallbackKey);
+        }
       } // in Firefox, keys that don't type text, just clear seln, fire keypress
       // https://github.com/mathquill/mathquill/issues/293#issuecomment-40997668
       else if (text) {
@@ -421,6 +432,8 @@ var saneKeyboardEvents = (function () {
         } else if (text !== compositionString) {
           updateCompositionText(text);
         }
+      } else if (compositionTextLength > 0) {
+        clearCompositionText();
       }
 
       compositionTextLength = 0;
