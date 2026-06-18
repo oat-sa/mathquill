@@ -125,7 +125,20 @@ var saneKeyboardEvents = (function () {
     var keyup: JQ_KeyboardEvent | null = null;
     var input: JQ_InputEvent | null = null;
     var textWasInserted = false;
+    var isComposing = false;
+    var compositionTextLength = 0;
+    var compositionString = '';
     var is_iPad = isIpadOS();
+
+    var LOG_PREFIX = '[Math Entry PCI | MathQuill]';
+    var noopKeyboardEvent = {
+      preventDefault: noop,
+    } as unknown as KeyboardEvent;
+    function debugIme(event: string, detail?: object) {
+      if (typeof console !== 'undefined' && console.debug) {
+        console.debug(LOG_PREFIX, event, detail || '');
+      }
+    }
 
     var textarea = jQuery(el);
     var target = jQuery(controller.container || textarea);
@@ -205,6 +218,94 @@ var saneKeyboardEvents = (function () {
       }
     }
 
+    function insertText(text: string) {
+      if (!text) return;
+
+      debugIme('insertText', { text: text, length: text.length });
+
+      if (controller.options && controller.options.overrideTypedText) {
+        for (var i = 0; i < text.length; i += 1) {
+          controller.options.overrideTypedText(text.charAt(i));
+        }
+      } else {
+        for (var j = 0; j < text.length; j += 1) {
+          controller.typedText(text.charAt(j));
+        }
+      }
+      textWasInserted = true;
+    }
+
+    function clearCompositionText() {
+      if (!compositionTextLength) return;
+
+      debugIme('clearCompositionText', {
+        backspaceCount: compositionTextLength,
+      });
+
+      for (var i = 0; i < compositionTextLength; i += 1) {
+        if (controller.options && controller.options.overrideKeystroke) {
+          controller.options.overrideKeystroke('Backspace', noopKeyboardEvent);
+        } else if (typeof controller.backspace === 'function') {
+          controller.backspace();
+        } else {
+          controller.keystroke('Backspace', noopKeyboardEvent);
+        }
+      }
+      compositionTextLength = 0;
+      compositionString = '';
+    }
+
+    function updateCompositionText(text: string) {
+      debugIme('updateCompositionText', {
+        text: text,
+        priorLength: compositionTextLength,
+      });
+      clearCompositionText();
+      if (!text) return;
+
+      if (controller.options && controller.options.overrideTypedText) {
+        for (var k = 0; k < text.length; k += 1) {
+          controller.options.overrideTypedText(text.charAt(k));
+        }
+      } else {
+        for (var l = 0; l < text.length; l += 1) {
+          controller.typedText(text.charAt(l));
+        }
+      }
+      compositionTextLength = text.length;
+      compositionString = text;
+      debugIme('updateCompositionText:done', {
+        compositionTextLength: compositionTextLength,
+      });
+    }
+
+    function syncCompositionText(source: string) {
+      if (!isComposing) return;
+      var text = textarea.val();
+      if (!text) {
+        debugIme(source, {
+          textareaVal: text,
+          compositionTextLength: compositionTextLength,
+          action: 'skip-empty',
+        });
+        return;
+      }
+      if (text === compositionString) {
+        debugIme(source, {
+          textareaVal: text,
+          compositionTextLength: compositionTextLength,
+          action: 'skip-unchanged',
+        });
+        return;
+      }
+      debugIme(source, {
+        textareaVal: text,
+        compositionTextLength: compositionTextLength,
+        action: 'sync',
+      });
+      updateCompositionText(text);
+    }
+
     // -*- event handlers -*- //
     function onKeydown(e: KeyboardEvent) {
       if (e.target !== textarea[0]) return;
@@ -223,6 +324,17 @@ var saneKeyboardEvents = (function () {
             guardedTextareaSelect();
           }
         });
+
+      if (isComposing || e.isComposing || e.keyCode === 229) {
+        debugIme('keydown', {
+          key: e.key,
+          keyCode: e.keyCode,
+          isComposing: isComposing,
+          eventIsComposing: e.isComposing,
+          action: 'skip-ime',
+        });
+        return;
+      }
 
       handleKey();
     }
@@ -258,6 +370,14 @@ var saneKeyboardEvents = (function () {
       // use the mq.keystroke('Right') command while a single character
       // is selected. Only detected in FF.
       if (!isArrowKey(e)) {
+        if (isComposing) {
+          debugIme('keypress', {
+            key: e.key,
+            keyCode: e.keyCode,
+            isComposing: isComposing,
+            action: 'schedule-typedText',
+          });
+        }
         checkTextareaFor(typedText);
       }
     }
@@ -272,6 +392,14 @@ var saneKeyboardEvents = (function () {
         // is selected. Only detected in FF.
         if (!isArrowKey(e)) {
           keyup = e;
+          if (isComposing) {
+            debugIme('keyup', {
+              key: e.key,
+              keyCode: e.keyCode,
+              isComposing: isComposing,
+              action: 'schedule-typedText',
+            });
+          }
           checkTextareaFor(typedText);
         }
       }
@@ -294,33 +422,129 @@ var saneKeyboardEvents = (function () {
       //   reliable as our tests are comprehensive
       // If anything like #40 or #71 is reported in IE < 9, see
       // b1318e5349160b665003e36d4eedd64101ceacd8
-      if (hasSelection()) return;
-
       var text = textarea.val();
+      if (hasSelection()) {
+        debugIme('typedText', {
+          textareaVal: text,
+          hasSelection: true,
+          isComposing: isComposing,
+          textWasInserted: textWasInserted,
+          action: 'skip',
+        });
+        return;
+      }
+      if (isComposing) {
+        debugIme('typedText', {
+          textareaVal: text,
+          isComposing: isComposing,
+          textWasInserted: textWasInserted,
+          action: 'skip',
+        });
+        return;
+      }
+      if (textWasInserted) {
+        debugIme('typedText', {
+          textareaVal: text,
+          isComposing: isComposing,
+          textWasInserted: textWasInserted,
+          action: 'skip',
+        });
+        return;
+      }
+
       if (text.length === 1) {
         textarea.val('');
-        if (controller.options && controller.options.overrideTypedText) {
-          controller.options.overrideTypedText(text);
-        } else {
-          controller.typedText(text);
-        }
+        debugIme('typedText', {
+          textareaVal: text,
+          isComposing: isComposing,
+          action: 'insertText',
+        });
+        insertText(text);
       } else if (
         text.length === 0 &&
         is_iPad &&
         !input &&
         keydown &&
         keyup &&
-        !textWasInserted &&
         isVisibleKey(keydown)
       ) {
         // issue with iPad and Japanese keyboard
         // only first symbol put in textare,
         // rest ignored and no text in textarea, no input event
         // will be used keydown.key
-        controller.typedText(text);
+        debugIme('typedText', {
+          textareaVal: text,
+          isComposing: isComposing,
+          key: keydown.key,
+          action: 'iPad-fallback',
+        });
+        insertText(keydown.key || '');
       } // in Firefox, keys that don't type text, just clear seln, fire keypress
       // https://github.com/mathquill/mathquill/issues/293#issuecomment-40997668
-      else if (text) guardedTextareaSelect(); // re-select if that's why we're here
+      else if (text) {
+        debugIme('typedText', {
+          textareaVal: text,
+          isComposing: isComposing,
+          action: 're-select',
+        });
+        guardedTextareaSelect(); // re-select if that's why we're here
+      }
+    }
+
+    function onCompositionStart() {
+      isComposing = true;
+      compositionTextLength = 0;
+      compositionString = '';
+      checkTextarea = noop;
+      clearTimeout(timeoutId);
+      debugIme('compositionstart', {
+        compositionTextLength: compositionTextLength,
+      });
+    }
+
+    function onCompositionUpdate() {
+      syncCompositionText('compositionupdate');
+    }
+
+    function onCompositionEnd(e?: JQ_InputEvent) {
+      var textareaVal = textarea.val();
+      var eventData =
+        e && e.originalEvent
+          ? (e.originalEvent as unknown as CompositionEvent).data
+          : undefined;
+      isComposing = false;
+      var text = textareaVal;
+      if (!text && eventData) {
+        text = eventData;
+      }
+      textarea.val('');
+
+      var priorCompositionLength = compositionTextLength;
+      var action = 'keep-interim';
+      if (text) {
+        if (compositionTextLength === 0) {
+          action = 'insertText';
+          insertText(text);
+          compositionString = text;
+        } else {
+          action = 'updateCompositionText';
+          updateCompositionText(text);
+        }
+      }
+
+      debugIme('compositionend', {
+        textareaVal: textareaVal,
+        eventData: eventData,
+        resolvedText: text,
+        compositionTextLength: priorCompositionLength,
+        action: action,
+      });
+
+      compositionTextLength = 0;
+      keydown = null;
+      keypress = null;
+      keyup = null;
+      input = null;
     }
 
     function onBlur() {
@@ -398,8 +622,14 @@ var saneKeyboardEvents = (function () {
 
     // -*- attach event handlers -*- //
     textarea.bind({
+      compositionstart: onCompositionStart,
+      compositionupdate: onCompositionUpdate,
+      compositionend: onCompositionEnd,
       input: function (e: JQ_InputEvent) {
         input = e;
+        if (isComposing) {
+          syncCompositionText('input-composing');
+        }
       },
     });
 
