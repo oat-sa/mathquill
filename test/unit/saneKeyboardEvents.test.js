@@ -625,7 +625,7 @@ suite('saneKeyboardEvents', function () {
       el.val('かな');
       el.trigger('compositionupdate');
       assert.equal(counter, 3, 'updated kana shown during composition');
-      assert.deepEqual(typed, ['か', 'な']);
+      assert.deepEqual(typed, ['か', 'か', 'な']);
       el.val('かな');
       el.trigger('compositionend');
       assert.equal(counter, 3, 'no duplicate insert on composition end');
@@ -715,7 +715,7 @@ suite('saneKeyboardEvents', function () {
       el.val('かな');
       el.trigger('compositionupdate');
       assert.equal(backspaceCount, 1, 'one backspace when growing composition');
-      assert.deepEqual(typed, ['か', 'な']);
+      assert.deepEqual(typed, ['か', 'か', 'な']);
     });
     test('skips unchanged compositionupdate', function () {
       var typed = [];

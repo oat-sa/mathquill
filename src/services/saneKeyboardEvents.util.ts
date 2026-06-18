@@ -418,7 +418,7 @@ var saneKeyboardEvents = (function () {
         if (compositionTextLength === 0) {
           insertText(text);
           compositionString = text;
-        } else {
+        } else if (text !== compositionString) {
           updateCompositionText(text);
         }
       }

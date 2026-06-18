@@ -35,6 +35,19 @@ window.assert = (function () {
         explanation: 'expected (' + thing1 + ') to equal (' + thing2 + ')',
       });
     },
+    deepEqual: function (thing1, thing2, message) {
+      if (JSON.stringify(thing1) === JSON.stringify(thing2)) return;
+
+      fail({
+        message: message,
+        explanation:
+          'expected (' +
+          JSON.stringify(thing1) +
+          ') to deepEqual (' +
+          JSON.stringify(thing2) +
+          ')',
+      });
+    },
     throws: function (fn, message) {
       var error = false;
 
