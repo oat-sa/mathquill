@@ -130,15 +130,9 @@ var saneKeyboardEvents = (function () {
     var compositionString = '';
     var is_iPad = isIpadOS();
 
-    var LOG_PREFIX = '[Math Entry PCI | MathQuill]';
     var noopKeyboardEvent = {
       preventDefault: noop,
     } as unknown as KeyboardEvent;
-    function debugIme(event: string, detail?: object) {
-      if (typeof console !== 'undefined' && console.debug) {
-        console.debug(LOG_PREFIX, event, detail || '');
-      }
-    }
 
     var textarea = jQuery(el);
     var target = jQuery(controller.container || textarea);
@@ -221,8 +215,6 @@ var saneKeyboardEvents = (function () {
     function insertText(text: string) {
       if (!text) return;
 
-      debugIme('insertText', { text: text, length: text.length });
-
       if (controller.options && controller.options.overrideTypedText) {
         for (var i = 0; i < text.length; i += 1) {
           controller.options.overrideTypedText(text.charAt(i));
@@ -238,10 +230,6 @@ var saneKeyboardEvents = (function () {
     function clearCompositionText() {
       if (!compositionTextLength) return;
 
-      debugIme('clearCompositionText', {
-        backspaceCount: compositionTextLength,
-      });
-
       for (var i = 0; i < compositionTextLength; i += 1) {
         if (controller.options && controller.options.overrideKeystroke) {
           controller.options.overrideKeystroke('Backspace', noopKeyboardEvent);
@@ -256,10 +244,6 @@ var saneKeyboardEvents = (function () {
     }
 
     function updateCompositionText(text: string) {
-      debugIme('updateCompositionText', {
-        text: text,
-        priorLength: compositionTextLength,
-      });
       clearCompositionText();
       if (!text) return;
 
@@ -274,35 +258,13 @@ var saneKeyboardEvents = (function () {
       }
       compositionTextLength = text.length;
       compositionString = text;
-      debugIme('updateCompositionText:done', {
-        compositionTextLength: compositionTextLength,
-      });
     }
 
-    function syncCompositionText(source: string) {
+    function syncCompositionText() {
       if (!isComposing) return;
       var text = textarea.val();
-      if (!text) {
-        debugIme(source, {
-          textareaVal: text,
-          compositionTextLength: compositionTextLength,
-          action: 'skip-empty',
-        });
-        return;
-      }
-      if (text === compositionString) {
-        debugIme(source, {
-          textareaVal: text,
-          compositionTextLength: compositionTextLength,
-          action: 'skip-unchanged',
-        });
-        return;
-      }
-      debugIme(source, {
-        textareaVal: text,
-        compositionTextLength: compositionTextLength,
-        action: 'sync',
-      });
+      if (!text) return;
+      if (text === compositionString) return;
       updateCompositionText(text);
     }
 
@@ -326,13 +288,6 @@ var saneKeyboardEvents = (function () {
         });
 
       if (isComposing || e.isComposing || e.keyCode === 229) {
-        debugIme('keydown', {
-          key: e.key,
-          keyCode: e.keyCode,
-          isComposing: isComposing,
-          eventIsComposing: e.isComposing,
-          action: 'skip-ime',
-        });
         return;
       }
 
@@ -370,14 +325,6 @@ var saneKeyboardEvents = (function () {
       // use the mq.keystroke('Right') command while a single character
       // is selected. Only detected in FF.
       if (!isArrowKey(e)) {
-        if (isComposing) {
-          debugIme('keypress', {
-            key: e.key,
-            keyCode: e.keyCode,
-            isComposing: isComposing,
-            action: 'schedule-typedText',
-          });
-        }
         checkTextareaFor(typedText);
       }
     }
@@ -392,14 +339,6 @@ var saneKeyboardEvents = (function () {
         // is selected. Only detected in FF.
         if (!isArrowKey(e)) {
           keyup = e;
-          if (isComposing) {
-            debugIme('keyup', {
-              key: e.key,
-              keyCode: e.keyCode,
-              isComposing: isComposing,
-              action: 'schedule-typedText',
-            });
-          }
           checkTextareaFor(typedText);
         }
       }
@@ -423,42 +362,12 @@ var saneKeyboardEvents = (function () {
       // If anything like #40 or #71 is reported in IE < 9, see
       // b1318e5349160b665003e36d4eedd64101ceacd8
       var text = textarea.val();
-      if (hasSelection()) {
-        debugIme('typedText', {
-          textareaVal: text,
-          hasSelection: true,
-          isComposing: isComposing,
-          textWasInserted: textWasInserted,
-          action: 'skip',
-        });
-        return;
-      }
-      if (isComposing) {
-        debugIme('typedText', {
-          textareaVal: text,
-          isComposing: isComposing,
-          textWasInserted: textWasInserted,
-          action: 'skip',
-        });
-        return;
-      }
-      if (textWasInserted) {
-        debugIme('typedText', {
-          textareaVal: text,
-          isComposing: isComposing,
-          textWasInserted: textWasInserted,
-          action: 'skip',
-        });
-        return;
-      }
+      if (hasSelection()) return;
+      if (isComposing) return;
+      if (textWasInserted) return;
 
       if (text.length === 1) {
         textarea.val('');
-        debugIme('typedText', {
-          textareaVal: text,
-          isComposing: isComposing,
-          action: 'insertText',
-        });
         insertText(text);
       } else if (
         text.length === 0 &&
@@ -472,21 +381,10 @@ var saneKeyboardEvents = (function () {
         // only first symbol put in textare,
         // rest ignored and no text in textarea, no input event
         // will be used keydown.key
-        debugIme('typedText', {
-          textareaVal: text,
-          isComposing: isComposing,
-          key: keydown.key,
-          action: 'iPad-fallback',
-        });
         insertText(keydown.key || '');
       } // in Firefox, keys that don't type text, just clear seln, fire keypress
       // https://github.com/mathquill/mathquill/issues/293#issuecomment-40997668
       else if (text) {
-        debugIme('typedText', {
-          textareaVal: text,
-          isComposing: isComposing,
-          action: 're-select',
-        });
         guardedTextareaSelect(); // re-select if that's why we're here
       }
     }
@@ -497,13 +395,10 @@ var saneKeyboardEvents = (function () {
       compositionString = '';
       checkTextarea = noop;
       clearTimeout(timeoutId);
-      debugIme('compositionstart', {
-        compositionTextLength: compositionTextLength,
-      });
     }
 
     function onCompositionUpdate() {
-      syncCompositionText('compositionupdate');
+      syncCompositionText();
     }
 
     function onCompositionEnd(e?: JQ_InputEvent) {
@@ -519,26 +414,14 @@ var saneKeyboardEvents = (function () {
       }
       textarea.val('');
 
-      var priorCompositionLength = compositionTextLength;
-      var action = 'keep-interim';
       if (text) {
         if (compositionTextLength === 0) {
-          action = 'insertText';
           insertText(text);
           compositionString = text;
         } else {
-          action = 'updateCompositionText';
           updateCompositionText(text);
         }
       }
-
-      debugIme('compositionend', {
-        textareaVal: textareaVal,
-        eventData: eventData,
-        resolvedText: text,
-        compositionTextLength: priorCompositionLength,
-        action: action,
-      });
 
       compositionTextLength = 0;
       keydown = null;
@@ -628,7 +511,7 @@ var saneKeyboardEvents = (function () {
       input: function (e: JQ_InputEvent) {
         input = e;
         if (isComposing) {
-          syncCompositionText('input-composing');
+          syncCompositionText();
         }
       },
     });
