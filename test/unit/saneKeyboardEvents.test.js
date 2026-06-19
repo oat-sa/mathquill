@@ -506,4 +506,237 @@ suite('saneKeyboardEvents', function () {
       el.trigger('copy');
     });
   });
+
+  suite('iPad Japanese IME', function () {
+    var origMaxTouchPoints;
+    var origPlatform;
+    setup(function () {
+      origMaxTouchPoints = navigator.maxTouchPoints;
+      origPlatform = navigator.platform;
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        value: 5,
+        configurable: true,
+      });
+      Object.defineProperty(navigator, 'platform', {
+        value: 'MacIntel',
+        configurable: true,
+      });
+    });
+    teardown(function () {
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        value: origMaxTouchPoints,
+        configurable: true,
+      });
+      Object.defineProperty(navigator, 'platform', {
+        value: origPlatform,
+        configurable: true,
+      });
+    });
+    test('inserts each kana once via keydown.key fallback', function (done) {
+      var counter = 0;
+      var typed = [];
+      saneKeyboardEvents(el, {
+        keystroke: noop,
+        typedText: function (text) {
+          counter += 1;
+          typed.push(text);
+        },
+      });
+      el.trigger(
+        Event('keydown', {
+          key: 'る',
+          which: 0,
+          originalEvent: { key: 'る' },
+        })
+      );
+      el.trigger(
+        Event('keyup', {
+          key: 'る',
+          which: 0,
+          originalEvent: { key: 'る' },
+        })
+      );
+      setTimeout(function () {
+        assert.equal(counter, 1, 'first kana inserted once');
+        assert.deepEqual(typed, ['る']);
+        counter = 0;
+        typed = [];
+        el.trigger(
+          Event('keydown', {
+            key: 'れ',
+            which: 0,
+            originalEvent: { key: 'れ' },
+          })
+        );
+        el.trigger(
+          Event('keyup', {
+            key: 'れ',
+            which: 0,
+            originalEvent: { key: 'れ' },
+          })
+        );
+        setTimeout(function () {
+          assert.equal(counter, 1, 'second kana inserted once');
+          assert.deepEqual(typed, ['れ']);
+          done();
+        }, 0);
+      }, 0);
+    });
+  });
+
+  suite('IME composition', function () {
+    test('suppresses interim Latin chars and commits on compositionend', function () {
+      var counter = 0;
+      var typed = [];
+      saneKeyboardEvents(el, {
+        keystroke: noop,
+        typedText: function (text) {
+          counter += 1;
+          typed.push(text);
+        },
+      });
+      el.trigger('compositionstart');
+      el.val('h');
+      el.trigger(Event('keydown', { which: 104 }));
+      el.trigger(Event('keypress', { which: 104 }));
+      el.trigger('input');
+      assert.equal(counter, 0, 'no insert during composition');
+      el.val('ひ');
+      el.trigger('compositionend');
+      assert.equal(counter, 1, 'single insert on composition end');
+      assert.equal(typed.join(''), 'ひ');
+      assert.equal(el.val(), '', 'textarea cleared after commit');
+    });
+    test('shows interim Japanese text during compositionupdate', function () {
+      var counter = 0;
+      var typed = [];
+      saneKeyboardEvents(el, {
+        keystroke: noop,
+        typedText: function (text) {
+          counter += 1;
+          typed.push(text);
+        },
+      });
+      el.trigger('compositionstart');
+      el.val('か');
+      el.trigger('compositionupdate');
+      assert.equal(counter, 1, 'first kana shown during composition');
+      assert.deepEqual(typed, ['か']);
+      el.val('かな');
+      el.trigger('compositionupdate');
+      assert.equal(counter, 3, 'updated kana shown during composition');
+      assert.deepEqual(typed, ['か', 'か', 'な']);
+      el.val('かな');
+      el.trigger('compositionend');
+      assert.equal(counter, 3, 'no duplicate insert on composition end');
+      assert.equal(el.val(), '', 'textarea cleared after commit');
+    });
+    test('keeps interim text when compositionend has empty textarea', function () {
+      var counter = 0;
+      var typed = [];
+      saneKeyboardEvents(el, {
+        keystroke: noop,
+        typedText: function (text) {
+          counter += 1;
+          typed.push(text);
+        },
+      });
+      el.trigger('compositionstart');
+      el.val('ひ');
+      el.trigger('compositionupdate');
+      assert.equal(counter, 1, 'interim kana shown during composition');
+      assert.deepEqual(typed, ['ひ']);
+      el.val('');
+      el.trigger('compositionend');
+      assert.equal(counter, 1, 'should not erase on empty compositionend');
+      assert.deepEqual(typed, ['ひ']);
+      assert.equal(el.val(), '', 'textarea cleared after commit');
+    });
+    test('does not erase interim text on empty compositionupdate', function () {
+      var counter = 0;
+      var typed = [];
+      saneKeyboardEvents(el, {
+        keystroke: noop,
+        typedText: function (text) {
+          counter += 1;
+          typed.push(text);
+        },
+      });
+      el.trigger('compositionstart');
+      el.val('ひ');
+      el.trigger('compositionupdate');
+      assert.equal(counter, 1, 'interim kana shown during composition');
+      assert.deepEqual(typed, ['ひ']);
+      el.val('');
+      el.trigger('compositionupdate');
+      assert.equal(counter, 1, 'should not erase on empty compositionupdate');
+      assert.deepEqual(typed, ['ひ']);
+    });
+    test('does not erase interim text on empty input while composing', function () {
+      var counter = 0;
+      var typed = [];
+      saneKeyboardEvents(el, {
+        keystroke: noop,
+        typedText: function (text) {
+          counter += 1;
+          typed.push(text);
+        },
+      });
+      el.trigger('compositionstart');
+      el.val('ひ');
+      el.trigger('compositionupdate');
+      assert.equal(counter, 1, 'interim kana shown during composition');
+      assert.deepEqual(typed, ['ひ']);
+      el.val('');
+      el.trigger('input');
+      assert.equal(
+        counter,
+        1,
+        'should not erase on empty input while composing'
+      );
+      assert.deepEqual(typed, ['ひ']);
+    });
+    test('updates growing composition without throwing', function () {
+      var typed = [];
+      var backspaceCount = 0;
+      saneKeyboardEvents(el, {
+        keystroke: noop,
+        backspace: function () {
+          backspaceCount += 1;
+        },
+        typedText: function (text) {
+          typed.push(text);
+        },
+      });
+      el.trigger('compositionstart');
+      el.val('か');
+      el.trigger('compositionupdate');
+      assert.deepEqual(typed, ['か']);
+      el.val('かな');
+      el.trigger('compositionupdate');
+      assert.equal(backspaceCount, 1, 'one backspace when growing composition');
+      assert.deepEqual(typed, ['か', 'か', 'な']);
+    });
+    test('skips unchanged compositionupdate', function () {
+      var typed = [];
+      var backspaceCount = 0;
+      saneKeyboardEvents(el, {
+        keystroke: noop,
+        backspace: function () {
+          backspaceCount += 1;
+        },
+        typedText: function (text) {
+          typed.push(text);
+        },
+      });
+      el.trigger('compositionstart');
+      el.val('ひ');
+      el.trigger('compositionupdate');
+      assert.deepEqual(typed, ['ひ']);
+      el.val('ひ');
+      el.trigger('compositionupdate');
+      assert.equal(backspaceCount, 0, 'no backspace on unchanged composition');
+      assert.deepEqual(typed, ['ひ']);
+    });
+  });
 });
