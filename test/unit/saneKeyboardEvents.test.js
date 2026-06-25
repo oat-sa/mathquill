@@ -624,11 +624,11 @@ suite('saneKeyboardEvents', function () {
       assert.deepEqual(typed, ['か']);
       el.val('かな');
       el.trigger('compositionupdate');
-      assert.equal(counter, 3, 'updated kana shown during composition');
-      assert.deepEqual(typed, ['か', 'か', 'な']);
+      assert.equal(counter, 2, 'only new kana shown during composition');
+      assert.deepEqual(typed, ['か', 'な']);
       el.val('かな');
       el.trigger('compositionend');
-      assert.equal(counter, 3, 'no duplicate insert on composition end');
+      assert.equal(counter, 2, 'no duplicate insert on composition end');
       assert.equal(el.val(), '', 'textarea cleared after commit');
     });
     test('keeps interim text when compositionend has empty textarea', function () {
@@ -636,6 +636,7 @@ suite('saneKeyboardEvents', function () {
       var typed = [];
       saneKeyboardEvents(el, {
         keystroke: noop,
+        cursor: {},
         typedText: function (text) {
           counter += 1;
           typed.push(text);
@@ -657,6 +658,7 @@ suite('saneKeyboardEvents', function () {
       var typed = [];
       saneKeyboardEvents(el, {
         keystroke: noop,
+        cursor: {},
         typedText: function (text) {
           counter += 1;
           typed.push(text);
@@ -677,6 +679,7 @@ suite('saneKeyboardEvents', function () {
       var typed = [];
       saneKeyboardEvents(el, {
         keystroke: noop,
+        cursor: {},
         typedText: function (text) {
           counter += 1;
           typed.push(text);
@@ -696,11 +699,12 @@ suite('saneKeyboardEvents', function () {
       );
       assert.deepEqual(typed, ['ひ']);
     });
-    test('updates growing composition without throwing', function () {
+    test('inserts only new text when composition grows', function () {
       var typed = [];
       var backspaceCount = 0;
       saneKeyboardEvents(el, {
         keystroke: noop,
+        cursor: {},
         backspace: function () {
           backspaceCount += 1;
         },
@@ -714,8 +718,78 @@ suite('saneKeyboardEvents', function () {
       assert.deepEqual(typed, ['か']);
       el.val('かな');
       el.trigger('compositionupdate');
-      assert.equal(backspaceCount, 1, 'one backspace when growing composition');
-      assert.deepEqual(typed, ['か', 'か', 'な']);
+      assert.equal(backspaceCount, 0, 'no backspace when growing composition');
+      assert.deepEqual(typed, ['か', 'な']);
+    });
+    test('deletes only removed text when composition shrinks', function () {
+      var typed = [];
+      var backspaceCount = 0;
+      var controller = {
+        keystroke: noop,
+        cursor: {},
+        backspace: function () {
+          backspaceCount += 1;
+        },
+        typedText: function (text) {
+          typed.push(text);
+        },
+      };
+      controller.cursor[L] = {};
+      saneKeyboardEvents(el, controller);
+      el.trigger('compositionstart');
+      el.val('1234');
+      el.trigger('compositionupdate');
+      assert.deepEqual(typed, ['1', '2', '3', '4']);
+      el.val('123');
+      el.trigger('compositionupdate');
+      assert.equal(backspaceCount, 1, 'one backspace for removed digit');
+      assert.deepEqual(typed, ['1', '2', '3', '4']);
+    });
+    test('does not delete outside current math block', function () {
+      var typed = [];
+      var backspaceCount = 0;
+      saneKeyboardEvents(el, {
+        keystroke: noop,
+        cursor: {},
+        backspace: function () {
+          backspaceCount += 1;
+        },
+        typedText: function (text) {
+          typed.push(text);
+        },
+      });
+      el.trigger('compositionstart');
+      el.val('12');
+      el.trigger('compositionupdate');
+      el.val('x');
+      el.trigger('compositionupdate');
+      assert.equal(backspaceCount, 0, 'backspace stops at block boundary');
+      assert.deepEqual(typed, ['1', '2', 'x']);
+    });
+    test('clears composition state on blur', function () {
+      var typed = [];
+      var backspaceCount = 0;
+      var controller = {
+        keystroke: noop,
+        cursor: {},
+        backspace: function () {
+          backspaceCount += 1;
+        },
+        typedText: function (text) {
+          typed.push(text);
+        },
+      };
+      controller.cursor[L] = {};
+      saneKeyboardEvents(el, controller);
+      el.trigger('compositionstart');
+      el.val('1234');
+      el.trigger('compositionupdate');
+      el.trigger('blur');
+      el.trigger('compositionstart');
+      el.val('123');
+      el.trigger('compositionupdate');
+      assert.equal(backspaceCount, 0, 'stale text is not deleted after blur');
+      assert.deepEqual(typed, ['1', '2', '3', '4', '1', '2', '3']);
     });
     test('skips unchanged compositionupdate', function () {
       var typed = [];
