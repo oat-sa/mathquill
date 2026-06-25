@@ -631,17 +631,23 @@ suite('saneKeyboardEvents', function () {
       assert.equal(counter, 2, 'no duplicate insert on composition end');
       assert.equal(el.val(), '', 'textarea cleared after commit');
     });
-    test('keeps interim text when compositionend has empty textarea', function () {
+    test('clears interim text when compositionend has empty textarea', function () {
       var counter = 0;
       var typed = [];
-      saneKeyboardEvents(el, {
+      var backspaceCount = 0;
+      var controller = {
         keystroke: noop,
         cursor: {},
+        backspace: function () {
+          backspaceCount += 1;
+        },
         typedText: function (text) {
           counter += 1;
           typed.push(text);
         },
-      });
+      };
+      controller.cursor[L] = {};
+      saneKeyboardEvents(el, controller);
       el.trigger('compositionstart');
       el.val('ひ');
       el.trigger('compositionupdate');
@@ -649,21 +655,28 @@ suite('saneKeyboardEvents', function () {
       assert.deepEqual(typed, ['ひ']);
       el.val('');
       el.trigger('compositionend');
-      assert.equal(counter, 1, 'should not erase on empty compositionend');
+      assert.equal(backspaceCount, 1, 'interim text cleared once');
+      assert.equal(counter, 1, 'empty compositionend inserts no text');
       assert.deepEqual(typed, ['ひ']);
       assert.equal(el.val(), '', 'textarea cleared after commit');
     });
-    test('does not erase interim text on empty compositionupdate', function () {
+    test('clears interim text on empty compositionupdate', function () {
       var counter = 0;
       var typed = [];
-      saneKeyboardEvents(el, {
+      var backspaceCount = 0;
+      var controller = {
         keystroke: noop,
         cursor: {},
+        backspace: function () {
+          backspaceCount += 1;
+        },
         typedText: function (text) {
           counter += 1;
           typed.push(text);
         },
-      });
+      };
+      controller.cursor[L] = {};
+      saneKeyboardEvents(el, controller);
       el.trigger('compositionstart');
       el.val('ひ');
       el.trigger('compositionupdate');
@@ -671,20 +684,27 @@ suite('saneKeyboardEvents', function () {
       assert.deepEqual(typed, ['ひ']);
       el.val('');
       el.trigger('compositionupdate');
-      assert.equal(counter, 1, 'should not erase on empty compositionupdate');
+      assert.equal(backspaceCount, 1, 'interim text cleared once');
+      assert.equal(counter, 1, 'empty compositionupdate inserts no text');
       assert.deepEqual(typed, ['ひ']);
     });
-    test('does not erase interim text on empty input while composing', function () {
+    test('clears interim text on empty input while composing', function () {
       var counter = 0;
       var typed = [];
-      saneKeyboardEvents(el, {
+      var backspaceCount = 0;
+      var controller = {
         keystroke: noop,
         cursor: {},
+        backspace: function () {
+          backspaceCount += 1;
+        },
         typedText: function (text) {
           counter += 1;
           typed.push(text);
         },
-      });
+      };
+      controller.cursor[L] = {};
+      saneKeyboardEvents(el, controller);
       el.trigger('compositionstart');
       el.val('ひ');
       el.trigger('compositionupdate');
@@ -692,11 +712,8 @@ suite('saneKeyboardEvents', function () {
       assert.deepEqual(typed, ['ひ']);
       el.val('');
       el.trigger('input');
-      assert.equal(
-        counter,
-        1,
-        'should not erase on empty input while composing'
-      );
+      assert.equal(backspaceCount, 1, 'interim text cleared once');
+      assert.equal(counter, 1, 'empty input inserts no text while composing');
       assert.deepEqual(typed, ['ひ']);
     });
     test('inserts only new text when composition grows', function () {
