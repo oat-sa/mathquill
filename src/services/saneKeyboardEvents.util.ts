@@ -231,6 +231,9 @@ var saneKeyboardEvents = (function () {
       if (!compositionTextLength) return;
 
       for (var i = 0; i < compositionTextLength; i += 1) {
+        if (!controller.cursor[L]) {
+          break;
+        }
         if (controller.options && controller.options.overrideKeystroke) {
           controller.options.overrideKeystroke('Backspace', noopKeyboardEvent);
         } else if (typeof controller.backspace === 'function') {
@@ -244,18 +247,17 @@ var saneKeyboardEvents = (function () {
     }
 
     function updateCompositionText(text: string) {
-      clearCompositionText();
+      if (text.indexOf(compositionString) === 0) {
+        insertText(text.slice(compositionString.length));
+      } else if (compositionString.indexOf(text) === 0) {
+        compositionTextLength = compositionString.length - text.length;
+        clearCompositionText();
+      } else {
+        clearCompositionText();
+        insertText(text);
+      }
       if (!text) return;
 
-      if (controller.options && controller.options.overrideTypedText) {
-        for (var k = 0; k < text.length; k += 1) {
-          controller.options.overrideTypedText(text.charAt(k));
-        }
-      } else {
-        for (var l = 0; l < text.length; l += 1) {
-          controller.typedText(text.charAt(l));
-        }
-      }
       compositionTextLength = text.length;
       compositionString = text;
     }
@@ -437,6 +439,7 @@ var saneKeyboardEvents = (function () {
       }
 
       compositionTextLength = 0;
+      compositionString = '';
       keydown = null;
       keypress = null;
       keyup = null;
@@ -446,6 +449,12 @@ var saneKeyboardEvents = (function () {
     function onBlur() {
       keydown = null;
       keypress = null;
+      keyup = null;
+      input = null;
+      textWasInserted = false;
+      isComposing = false;
+      compositionTextLength = 0;
+      compositionString = '';
       checkTextarea = noop;
       clearTimeout(timeoutId);
       textarea.val('');
